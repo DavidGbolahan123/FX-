@@ -1,0 +1,93 @@
+{
+  "asof": "2026-10-23",
+  "macro": {
+    "USD": {
+      "bank": "Fed",
+      "rate": 3.875,
+      "cpi": 3.7,
+      "cpiPrev": 3.4,
+      "unemp": 4.2,
+      "unempPrev": 4.1,
+      "path": 25,
+      "tilt": -0.5,
+      "note": "Fed funds 3.75 to 4.00% after a 25bp hike on 16 Sep. Hold expected 28 Oct, December hike priced near 94%. CPI 3.7%, core 2.6%. September payrolls +29k, unemployment 4.2%."
+    },
+    "EUR": {
+      "bank": "ECB",
+      "rate": 2.5,
+      "cpi": 3.8,
+      "cpiPrev": 3.2,
+      "unemp": null,
+      "unempPrev": null,
+      "path": 30,
+      "tilt": 0,
+      "note": "Deposit rate 2.50% after a 25bp hike in September. Hold on 29 Oct expected by 70 of 73 economists, December hike by 64 of 73. Flash HICP 3.8%, core 2.5%, highest since Sep 2023."
+    },
+    "GBP": {
+      "bank": "BoE",
+      "rate": 3.75,
+      "cpi": 3.5,
+      "cpiPrev": 3.1,
+      "unemp": 4.7,
+      "unempPrev": 4.9,
+      "path": 100,
+      "tilt": 0,
+      "note": "Bank Rate 3.75%. September hold was 6 to 3, three votes for a hike. A 5 Nov hike is priced as near certain, about four hikes by mid-2027. Regular pay +3.7%, unemployment 4.7%."
+    },
+    "JPY": {
+      "bank": "BoJ",
+      "rate": 1.25,
+      "cpi": 2.1,
+      "cpiPrev": 1.9,
+      "unemp": null,
+      "unempPrev": null,
+      "path": 25,
+      "tilt": 0,
+      "note": "Policy rate 1.25% after a 25bp hike in September (7 to 2 vote). October hike under 5% priced, December about 80%. Real rate stays deeply negative."
+    },
+    "CHF": {
+      "bank": "SNB",
+      "rate": 0,
+      "cpi": 1,
+      "cpiPrev": 0.8,
+      "unemp": null,
+      "unempPrev": null,
+      "path": 0,
+      "tilt": 0,
+      "note": "SNB held 0% on 24 Sep, the fifth hold. Willing to act in FX as necessary. Next meeting 10 Dec. CPI 1.0%. Surveys see no hike before 2027 or 2028."
+    },
+    "AUD": {
+      "bank": "RBA",
+      "rate": 4.6,
+      "cpi": 4,
+      "cpiPrev": 3.5,
+      "unemp": 4.7,
+      "unempPrev": null,
+      "path": 10,
+      "tilt": -0.5,
+      "note": "Cash rate 4.60% after a hike on 30 Sep, a 15-year high. September unemployment 4.7%, a five-year high, employment down about 40k. Hold expected 3 Nov, risk still leans to a hike."
+    },
+    "NZD": {
+      "bank": "RBNZ",
+      "rate": 2.75,
+      "cpi": 3.7,
+      "cpiPrev": 4.1,
+      "unemp": null,
+      "unempPrev": null,
+      "path": 60,
+      "tilt": 0,
+      "note": "OCR 2.75%. A 25bp hike to 3.00% on 28 Oct is priced near 80%. BNZ sees a 3.75% peak. Q3 CPI 3.7% y/y against 4.1% in Q2."
+    },
+    "CAD": {
+      "bank": "BoC",
+      "rate": 2.25,
+      "cpi": 3.1,
+      "cpiPrev": 3,
+      "unemp": null,
+      "unempPrev": null,
+      "path": 0,
+      "tilt": -0.5,
+      "note": "Overnight rate 2.25%, unchanged since Oct 2025. Hold expected 28 Oct. CPI 3.1%, below the 3.2% consensus. Jobs fell in August and September."
+    }
+  }
+}

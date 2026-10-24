@@ -1,0 +1,706 @@
+<title>Confluence FX</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one working screen. Currency strength strip on top, ranked pair table on the left, trade detail on the right. Data loader and macro inputs sit below as collapsible desks. */
+:root {
+  --bg: #edf0f4; --surface: #fafbfc; --raised: #ffffff; --ink: #101826; --muted: #566377; --line: #d4dae3;
+  --accent: #2250d4; --long: #0a7656; --short: #b0341d; --warn: #8f6200;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --f-data: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1119; --surface: #121a26; --raised: #172131; --ink: #e5eaf1; --muted: #95a2b6; --line: #243146;
+    --accent: #7b9bff; --long: #38c79a; --short: #ff7d66; --warn: #e2b34c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1119; --surface: #121a26; --raised: #172131; --ink: #e5eaf1; --muted: #95a2b6; --line: #243146;
+  --accent: #7b9bff; --long: #38c79a; --short: #ff7d66; --warn: #e2b34c; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.45; }
+.wrap { max-width: 1280px; margin: 0 auto; padding-block: 20px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 16px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 700; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: 28px; line-height: 1.1; }
+h2 { font-size: 17px; }
+h3 { font-size: 14px; }
+.mono, .num { font-family: var(--f-data); font-variant-numeric: tabular-nums; }
+.eyebrow { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header.top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; }
+header.top p { margin: 4px 0 0; color: var(--muted); max-width: 62ch; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-size: 12px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--muted); white-space: nowrap; }
+.chip b { color: var(--ink); font-weight: 600; }
+.chip.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.panel > .hd { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 16px; padding: 14px 16px 0; }
+.panel > .bd { padding: 12px 16px 16px; }
+
+/* strength strip */
+.strength { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 20px; }
+.srow { display: grid; grid-template-columns: 34px 1fr 40px; align-items: center; gap: 8px; }
+.srow .c { font-family: var(--f-data); font-weight: 600; font-size: 12px; }
+.track { position: relative; height: 10px; background: color-mix(in srgb, var(--line) 55%, transparent); border-radius: 3px; }
+.track::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--muted); opacity: .6; }
+.fill { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.fill.pos { left: 50%; background: var(--long); }
+.fill.neg { right: 50%; background: var(--short); }
+.srow .v { font-size: 12px; text-align: right; }
+
+/* main grid */
+.main { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button { padding: 5px 11px; border: 1px solid var(--line); background: transparent; border-radius: 6px; font-size: 12.5px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.search { margin-left: auto; padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--raised); color: var(--ink); width: 110px; font: inherit; font-size: 12.5px; }
+.thead, .row { display: grid; grid-template-columns: 88px minmax(0, 1fr) 46px 46px 96px 22px; gap: 8px; align-items: center; padding: 8px 12px; }
+.thead { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--line); }
+.thead span:nth-child(3), .thead span:nth-child(4) { text-align: right; }
+.rows { display: flex; flex-direction: column; }
+.row { width: 100%; text-align: left; background: transparent; border: 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.row:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.row[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+.pair { font-family: var(--f-data); font-weight: 600; font-size: 13.5px; }
+.pair i { font-style: normal; color: var(--muted); padding: 0 1px; }
+.sig { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pill { font-family: var(--f-data); font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 4px; letter-spacing: .04em; white-space: nowrap; }
+.pill.long { color: var(--long); background: color-mix(in srgb, var(--long) 15%, transparent); }
+.pill.short { color: var(--short); background: color-mix(in srgb, var(--short) 15%, transparent); }
+.pill.flat { color: var(--muted); background: color-mix(in srgb, var(--line) 50%, transparent); }
+.tier { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tier.hi { color: var(--ink); font-weight: 600; }
+.row .num { text-align: right; font-size: 12.5px; }
+.pos-t { color: var(--long); } .neg-t { color: var(--short); } .nil-t { color: var(--muted); }
+.meter { position: relative; height: 8px; background: color-mix(in srgb, var(--line) 55%, transparent); border-radius: 2px; }
+.meter::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--muted); opacity: .5; }
+.meter .fill { border-radius: 2px; }
+.evdot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); justify-self: center; }
+.empty { padding: 20px 16px; color: var(--muted); }
+
+/* detail */
+.detail { position: sticky; top: env(safe-area-inset-top, 0px); display: flex; flex-direction: column; gap: 14px; }
+.d-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.d-head h2 { font-size: 26px; font-family: var(--f-data); font-weight: 600; letter-spacing: 0; }
+.d-sub { color: var(--muted); font-size: 13px; }
+.scores { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.sc { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--raised); }
+.sc .n { font-family: var(--f-data); font-size: 20px; font-weight: 600; display: block; }
+.alert { display: flex; gap: 8px; padding: 8px 10px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--warn) 50%, var(--line)); background: color-mix(in srgb, var(--warn) 9%, transparent); color: var(--ink); font-size: 13px; }
+.alert::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); margin-top: 6px; }
+.chartbox { border: 1px solid var(--line); border-radius: 8px; background: var(--raised); overflow: hidden; }
+.chartbox svg { display: block; width: 100%; height: auto; }
+.chartbox .none { padding: 28px 16px; color: var(--muted); text-align: center; }
+.chartbox text { fill: var(--muted); font-family: var(--f-data); font-size: 10px; }
+.c-up { fill: var(--long); stroke: var(--long); } .c-dn { fill: var(--short); stroke: var(--short); }
+.ema50 { stroke: var(--accent); fill: none; stroke-width: 1.4; } .ema200 { stroke: var(--warn); fill: none; stroke-width: 1.4; }
+.grid { stroke: var(--line); stroke-width: 1; }
+.lvl { stroke-width: 1; stroke-dasharray: 4 3; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 6px 10px 8px; font-size: 11.5px; color: var(--muted); }
+.legend i { display: inline-block; width: 14px; height: 2px; vertical-align: middle; margin-right: 5px; }
+.plan { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.plan div { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; background: var(--raised); }
+.plan .k { font-size: 11px; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; display: block; }
+.plan .n { font-family: var(--f-data); font-size: 13px; font-weight: 600; display: block; }
+.plan .p { font-family: var(--f-data); font-size: 11px; color: var(--muted); }
+.why { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.why ul { margin: 6px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
+.bars { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+.brow { display: grid; grid-template-columns: 92px 1fr 38px; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
+.brow .num { text-align: right; color: var(--ink); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { padding: 6px 12px; border: 1px solid var(--line); background: var(--raised); border-radius: 6px; font-size: 13px; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
+.note { font-size: 12px; color: var(--muted); }
+
+/* desks */
+details.panel > summary { list-style: none; cursor: pointer; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; justify-content: space-between; }
+details.panel > summary::-webkit-details-marker { display: none; }
+details.panel > summary h2::before { content: "+"; display: inline-block; width: 18px; font-family: var(--f-data); color: var(--accent); }
+details.panel[open] > summary h2::before { content: "\2212"; }
+details.panel > .bd { border-top: 1px solid var(--line); padding-top: 14px; }
+.drop { border: 1.5px dashed var(--line); border-radius: 10px; padding: 18px; text-align: center; color: var(--muted); background: var(--raised); }
+.drop.over { border-color: var(--accent); color: var(--ink); }
+.drop label { color: var(--accent); font-weight: 600; cursor: pointer; text-decoration: underline; }
+.loadgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.paste { display: flex; flex-direction: column; gap: 8px; }
+textarea { width: 100%; min-height: 96px; font-family: var(--f-data); font-size: 12px; background: var(--raised); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px; resize: vertical; }
+select, input[type=number] { font: inherit; background: var(--raised); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+.log { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+.log .ok { color: var(--long); } .log .bad { color: var(--short); }
+.loaded { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.tbl { overflow-x: auto; }
+.mt { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 13px; }
+.mt th { text-align: left; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.mt td { padding: 6px 8px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); vertical-align: top; }
+.mt input { width: 74px; font-family: var(--f-data); }
+.mt .nt { color: var(--muted); font-size: 12px; min-width: 260px; }
+.cal { display: flex; flex-direction: column; }
+.cal div { display: grid; grid-template-columns: 78px 54px minmax(0, 1fr); gap: 10px; padding: 6px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); font-size: 13px; }
+.cal .d { font-family: var(--f-data); color: var(--muted); font-size: 12px; }
+.cal .soon .d { color: var(--warn); font-weight: 600; }
+.method { font-size: 13px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; }
+.method p { margin: 0; }
+.live { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--raised); }
+.live .big { font-size: 20px; font-weight: 600; }
+.live .st { font-size: 12px; font-weight: 600; padding: 2px 7px; border-radius: 4px; }
+.st.bad { color: var(--short); background: color-mix(in srgb, var(--short) 14%, transparent); }
+.st.good { color: var(--long); background: color-mix(in srgb, var(--long) 14%, transparent); }
+.news-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.newslist { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; }
+.newslist li { display: grid; grid-template-columns: 10px minmax(0, 1fr); gap: 10px; padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.newslist a { color: var(--ink); text-decoration: none; font-weight: 500; overflow-wrap: anywhere; }
+.newslist a:hover { color: var(--accent); text-decoration: underline; }
+.newslist .meta { display: block; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.tdot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; background: var(--line); }
+.tdot.pos { background: var(--long); } .tdot.neg { background: var(--short); }
+.evl { display: grid; grid-template-columns: 96px 38px minmax(0, 1fr); gap: 8px 10px; padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); font-size: 13px; }
+.evl .tm { font-family: var(--f-data); font-size: 11.5px; color: var(--muted); }
+.evl .ccy { font-family: var(--f-data); font-weight: 600; font-size: 12px; }
+.evl .sub { display: block; font-size: 11.5px; color: var(--muted); }
+.evl.hi .tm { color: var(--warn); font-weight: 600; }
+.foot { font-size: 12px; color: var(--muted); max-width: 90ch; }
+
+@media (max-width: 980px) { .news-grid { grid-template-columns: minmax(0, 1fr); } .main { grid-template-columns: minmax(0, 1fr); } .detail { position: static; } .strength { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  h1 { font-size: 24px; }
+  .thead, .row { grid-template-columns: 78px minmax(0, 1fr) 40px 40px 14px; }
+  .thead span:nth-child(5), .row .meter { display: none; }
+  .scores { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .plan, .why, .loadgrid, .method { grid-template-columns: minmax(0, 1fr); }
+  .plan { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .search { margin-left: 0; width: 100%; }
+}
+@media (prefers-reduced-motion: no-preference) { .fill { transition: width .25s ease; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">G10 spot FX · macro and chart confluence</div>
+      <h1>Confluence FX</h1>
+      <p>Every pair gets a macro score from rates, real yields, priced policy paths and labour data, and a technical score from 4-hour price structure. A signal fires only when both agree. No positioning data is used.</p>
+    </div>
+    <div class="chips" id="chips"></div>
+  </header>
+
+  <section class="panel" aria-labelledby="h-str">
+    <div class="hd"><h2 id="h-str">Currency strength, macro only</h2><span class="note">−100 weakest to +100 strongest. Updates when you edit the macro desk.</span></div>
+    <div class="bd"><div class="strength" id="strength"></div></div>
+  </section>
+
+  <div class="main">
+    <section class="panel" aria-labelledby="h-sig">
+      <div class="hd"><h2 id="h-sig">Pair signals</h2><span class="note" id="sigNote"></span></div>
+      <div class="bd" style="padding-bottom:6px">
+        <div class="toolbar">
+          <div class="seg" id="filters" role="group" aria-label="Filter signals"></div>
+          <input class="search" id="q" type="search" placeholder="Pair or currency" aria-label="Search pairs">
+        </div>
+      </div>
+      <div class="thead"><span>Pair</span><span>Signal</span><span>Macro</span><span>Chart</span><span>Strength</span><span></span></div>
+      <div class="rows" id="rows"></div>
+    </section>
+    <section class="panel detail" id="detail" aria-live="polite"></section>
+  </div>
+
+  <section class="panel" id="newsPanel" aria-labelledby="h-news">
+    <div class="hd"><h2 id="h-news">News and releases</h2><div class="seg" id="newsScope" role="group" aria-label="News scope"></div></div>
+    <div class="bd news-grid">
+      <div><h3>Latest headlines</h3><ul class="newslist" id="newsList"></ul></div>
+      <div><h3>Upcoming releases <span class="note">your local time</span></h3><div id="evList"></div></div>
+    </div>
+  </section>
+
+  <details class="panel" id="loader">
+    <summary><h2>Chart data desk</h2><span class="note" id="loadNote"></span></summary>
+    <div class="bd">
+      <div class="loadgrid">
+        <div>
+          <div class="drop" id="drop">
+            Drop 4-hour CSV files here, or <label for="files">choose files</label>
+            <input id="files" type="file" accept=".csv,.txt,text/csv,text/plain" multiple hidden>
+            <div class="note" style="margin-top:6px">One file per pair. The pair is read from the file name, for example EURUSD.csv.</div>
+          </div>
+          <ul class="log" id="log"></ul>
+        </div>
+        <div class="paste">
+          <div class="eyebrow">Or paste rows</div>
+          <textarea id="paste" placeholder="Date,Open,High,Low,Close&#10;2026-10-22,1.1651,1.1702,1.1620,1.1688&#10;..." spellcheck="false"></textarea>
+          <div class="actions">
+            <select id="pasteWhich" aria-label="Pair for pasted rows"></select>
+            <button class="btn" id="pasteBtn" type="button">Add chart</button>
+          </div>
+        </div>
+      </div>
+      <p class="note" style="margin:12px 0 0">4-hour (H4) bars only, oldest or newest first, with date and time. At least 60 bars are needed and 250 or more is better so the 200 EMA is real. Times are shown in the timezone of your file, usually UTC or broker time. Exports work from TradingView (Export chart data), MetaTrader (Export Bars, timeframe H4) and Investing.com (Historical Data). A reversed name such as JPYUSD is flipped to USDJPY automatically.</p>
+      <div class="loaded" id="loaded"></div>
+    </div>
+  </details>
+
+  <details class="panel" id="macroDesk">
+    <summary><h2>Macro desk</h2><span class="note">Pre-filled from public data as of 23 Oct 2026. Edit any number and every score updates.</span></summary>
+    <div class="bd">
+      <div class="tbl"><table class="mt" id="mt"></table></div>
+      <div class="actions" style="margin-top:12px"><button class="btn" id="resetMacro" type="button">Reset to 23 Oct data</button><span class="note">Priced path is the expected change in the policy rate over about 12 months, in basis points. Tilt runs from −2 to +2 and covers growth or risk tone the numbers miss.</span></div>
+      <h3 style="margin:18px 0 6px">Central bank calendar</h3>
+      <div class="cal" id="cal"></div>
+    </div>
+  </details>
+
+  <details class="panel">
+    <summary><h2>How the score works</h2><span class="note">Weights and thresholds</span></summary>
+    <div class="bd method">
+      <p><b>Macro score.</b> Each currency is scored from the rate path priced for the next year (30%), real policy rate (20%), yield level (15%), labour trend (15%), inflation momentum (10%) your tilt (10%) and headline tone (6%, a rough keyword read of the latest central bank and FX headlines). A pair's macro score is the base currency score minus the quote currency score, on a −100 to +100 scale.</p>
+      <p><b>Technical score.</b> Trend from the 20, 50 and 200 EMAs (35%), momentum from MACD and RSI (25%), structure from the 55-bar range and 20-bar breakouts (25%), and 20-bar rate of change in ATR units (15%). Bars are 4 hours, so 20 bars is about 3 trading days.</p>
+      <p><b>Signal.</b> Combined score is the average of the two. Strong needs both scores to agree and the average above 45. Moderate needs it above 25. When macro and chart point opposite ways the pair is marked Conflict and should be skipped.</p>
+      <p><b>Trade levels.</b> Stop sits beyond the 10-bar swing, kept between 1.2 and 2.5 ATR from the close. Targets are 1.5R and 3R. Treat the close as a reference entry, and prefer a pullback toward the 20 EMA when the page says the pair is extended.</p>
+    </div>
+  </details>
+
+  <p class="foot">Macro inputs come from central bank statements, official statistics and broker previews published up to 23 Oct 2026, and they go stale as new data lands. This is a decision aid for research and content, not personal financial advice. Size positions against your own risk limits.</p>
+</div>
+
+<script>
+/*PRICES*/
+</script>
+<script>
+/*ENGINE*/
+</script>
+<script>
+(function () {
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const store = {
+    get(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  };
+  const KEY_M = 'cfx.macro.' + MACRO_ASOF, KEY_B = 'cfx.bars';
+
+  const D0 = window.CFX_DATA || null;
+  const state = { macro: clone(DEFAULT_MACRO), bars: {}, sel: null, filter: 'all', q: '', data: D0, newsAll: false };
+  const savedM = store.get(KEY_M);
+  if (savedM) CCY.forEach(c => { if (savedM[c]) Object.assign(state.macro[c], savedM[c]); });
+  const hasFeed = !!(D0 && D0.bars && Object.keys(D0.bars).length);
+  const savedB = hasFeed ? D0.bars : store.get(KEY_B);
+  if (savedB) for (const p in savedB) if (PAIRS.includes(p)) state.bars[p] = savedB[p].map(r => ({ t: r[0], o: r[1], h: r[2], l: r[3], c: r[4] }));
+  function applyPulse() {
+    const pu = (state.data && state.data.pulse) || {};
+    CCY.forEach(c => { if (state.macro[c]) state.macro[c].news = pu[c] || 0; });
+  }
+  applyPulse();
+  const fmtAgo = min => min < 1 ? 'just now' : min < 60 ? min + ' min ago' : min < 1440 ? Math.round(min / 60) + ' h ago' : Math.round(min / 1440) + ' d ago';
+  const fmtIn = h => h < 1 ? Math.max(1, Math.round(h * 60)) + ' min' : h < 10 ? h.toFixed(1) + ' h' : Math.round(h) + ' h';
+  const marketOpen = () => { const n = new Date(), d = n.getUTCDay(), h = n.getUTCHours(); return !(d === 6 || (d === 5 && h >= 22) || (d === 0 && h < 22)); };
+
+  const fmtS = (v, d = 0) => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(d);
+  const cls = v => (v > 5 ? 'pos-t' : v < -5 ? 'neg-t' : 'nil-t');
+  const pairHTML = p => esc(p.slice(0, 3)) + '<i>/</i>' + esc(p.slice(3));
+  const px = (v, p) => v.toFixed(p.endsWith('JPY') ? 3 : 5);
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const p2 = n => String(n).padStart(2, '0');
+  const dShort = ms => { const d = new Date(ms); return d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()] + ' ' + p2(d.getUTCHours()) + ':' + p2(d.getUTCMinutes()); };
+  const dLong = iso => { const d = new Date(iso + 'T00:00:00Z'); return d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); };
+  const todayMs = () => { const n = new Date(); return Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()); };
+
+  const TIER = { strong: 'Strong', moderate: 'Moderate', watch: 'Watch', conflict: 'Conflict', macro: 'Macro bias', none: 'No edge' };
+  const RANK = { strong: 5, moderate: 4, watch: 3, macro: 2, conflict: 1, none: 0 };
+
+  function eventsFor(pair) {
+    const t = todayMs(), now = Date.now(), out = [];
+    EVENTS.forEach(e => {
+      const days = Math.round((Date.parse(e.d + 'T00:00:00Z') - t) / 86400000);
+      if (days >= 0 && days <= 3 && e.ccy.some(c => pair.includes(c))) out.push({ h: days * 24, text: e.t + ' ' + (days === 0 ? 'today' : 'in ' + days + (days === 1 ? ' day' : ' days')) });
+    });
+    ((state.data && state.data.calendar) || []).forEach(e => {
+      if (e.impact !== 'High' || !pair.includes(e.ccy)) return;
+      const h = (e.ts - now) / 3600000;
+      if (h >= -0.5 && h <= 24) out.push({ h, text: e.ccy + ' ' + e.title + ' ' + (h <= 0 ? 'just released' : 'in ' + fmtIn(h)) });
+    });
+    return out.sort((a, b) => a.h - b.h).slice(0, 3);
+  }
+
+  function compute() {
+    const cs = currencyScores(state.macro);
+    const rows = PAIRS.map(p => {
+      const mp = macroPair(p, cs);
+      const b = state.bars[p];
+      const tech = b ? techScore(b, p) : null;
+      const cb = combine(mp.score, tech);
+      const plan = (cb.tier === 'strong' || cb.tier === 'moderate') ? tradePlan(tech, cb.dir) : null;
+      return { pair: p, mp, tech, cb, plan, ev: eventsFor(p) };
+    });
+    rows.sort((a, b) => (RANK[b.cb.tier] - RANK[a.cb.tier]) || (Math.abs(b.cb.combined) - Math.abs(a.cb.combined)));
+    return { cs, rows };
+  }
+
+  let model = compute();
+
+  /* ---------- header chips ---------- */
+  function renderChips() {
+    const n = Object.keys(state.bars).filter(p => techScore(state.bars[p], p)).length;
+    const asof = (state.data && state.data.asof) || MACRO_ASOF;
+    const age = Math.round((todayMs() - Date.parse(asof + 'T00:00:00Z')) / 86400000);
+    const stale = age > 14;
+    const D = state.data, fts = D && D.fetchedTs, open = marketOpen();
+    const ageMin = fts ? Math.round((Date.now() - fts) / 60000) : null;
+    const pxStale = ageMin != null && open && ageMin > 60;
+    const feed = ageMin == null ? '' : `<span class="chip ${pxStale ? 'warn' : ''}">Prices <b>${fmtAgo(ageMin)}</b>${pxStale ? ' · feed is late' : ''}</span>` + (open ? '' : '<span class="chip">Market closed</span>');
+    $('#chips').innerHTML = feed +
+      `<span class="chip ${stale ? 'warn' : ''}">Macro as of <b>${dLong(asof)}</b>${stale ? ' · ' + age + ' days old, refresh the desk' : ''}</span>` +
+      `<span class="chip">Charts <b>${n}/28</b> loaded</span>`;
+    $('#loadNote').textContent = n ? n + ' of 28 pairs loaded' : 'Add 4-hour charts to unlock technical scores and trade levels';
+  }
+
+  /* ---------- strength ---------- */
+  function renderStrength() {
+    const entries = Object.entries(model.cs.scores).sort((a, b) => b[1] - a[1]);
+    const mx = Math.max(40, ...entries.map(e => Math.abs(e[1])));
+    $('#strength').innerHTML = entries.map(([c, v]) => {
+      const w = Math.abs(v) / mx * 50;
+      return `<div class="srow"><span class="c">${c}</span><div class="track"><div class="fill ${v >= 0 ? 'pos' : 'neg'}" style="width:${w.toFixed(1)}%"></div></div><span class="v num ${cls(v)}">${fmtS(v)}</span></div>`;
+    }).join('');
+  }
+
+  /* ---------- table ---------- */
+  const FILTERS = [['all', 'All'], ['act', 'Actionable'], ['long', 'Long'], ['short', 'Short'], ['conf', 'Conflict']];
+  function renderFilters() {
+    $('#filters').innerHTML = FILTERS.map(([k, l]) => `<button type="button" data-f="${k}" aria-pressed="${state.filter === k}">${l}</button>`).join('');
+  }
+  function visibleRows() {
+    const q = state.q.trim().toUpperCase().replace(/[^A-Z]/g, '');
+    return model.rows.filter(r => {
+      if (q && !r.pair.includes(q)) return false;
+      const t = r.cb.tier, d = r.cb.dir;
+      if (state.filter === 'act') return t === 'strong' || t === 'moderate';
+      if (state.filter === 'long') return d > 0;
+      if (state.filter === 'short') return d < 0;
+      if (state.filter === 'conf') return t === 'conflict';
+      return true;
+    });
+  }
+  function renderRows() {
+    const rows = visibleRows();
+    const act = model.rows.filter(r => r.cb.tier === 'strong' || r.cb.tier === 'moderate').length;
+    const macroOnly = model.rows.filter(r => !r.tech).length;
+    $('#sigNote').textContent = act ? act + ' actionable' + (macroOnly ? ' · ' + macroOnly + ' on macro only' : '') : (macroOnly === 28 ? 'Macro only until charts are loaded' : 'No pair has both macro and chart aligned');
+    if (!rows.length) { $('#rows').innerHTML = '<div class="empty">No pairs match this filter.</div>'; return; }
+    $('#rows').innerHTML = rows.map(r => {
+      const d = r.cb.dir, c = r.cb.combined;
+      const pill = d > 0 ? '<span class="pill long">LONG</span>' : d < 0 ? '<span class="pill short">SHORT</span>' : '<span class="pill flat">FLAT</span>';
+      const w = Math.min(100, Math.abs(c)) / 100 * 50;
+      const tcol = r.tech ? `<span class="num ${cls(r.tech.score)}">${fmtS(r.tech.score)}</span>` : '<span class="num nil-t">–</span>';
+      return `<button type="button" class="row" data-pair="${r.pair}" aria-pressed="${state.sel === r.pair}">
+        <span class="pair">${pairHTML(r.pair)}</span>
+        <span class="sig">${pill}<span class="tier ${(r.cb.tier === 'strong' || r.cb.tier === 'moderate') ? 'hi' : ''}">${TIER[r.cb.tier]}</span></span>
+        <span class="num ${cls(r.mp.score)}">${fmtS(r.mp.score)}</span>
+        ${tcol}
+        <span class="meter"><span class="fill ${c >= 0 ? 'pos' : 'neg'}" style="width:${w.toFixed(1)}%"></span></span>
+        <span>${r.ev.length ? '<span class="evdot" title="Central bank decision within 3 days"></span>' : ''}</span>
+      </button>`;
+    }).join('');
+  }
+
+  /* ---------- chart ---------- */
+  function chartSVG(r) {
+    const bars = state.bars[r.pair];
+    if (!bars || !r.tech) return '<div class="none">No chart loaded for this pair. Open the chart data desk below and add 4-hour bars to see price, EMAs and trade levels.</div>';
+    const N = Math.min(110, bars.length), off = bars.length - N, vis = bars.slice(off);
+    const W = 720, H = 320, ml = 8, mr = 70, mt = 10, mb = 22, pw = W - ml - mr, ph = H - mt - mb;
+    let lo = Math.min(...vis.map(b => b.l)), hi = Math.max(...vis.map(b => b.h));
+    const p = r.plan, lv = liveOf(r.pair);
+    if (p) { lo = Math.min(lo, p.sl, p.tp1, p.tp2); hi = Math.max(hi, p.sl, p.tp1, p.tp2); }
+    if (lv) { lo = Math.min(lo, lv.price); hi = Math.max(hi, lv.price); }
+    const pad = (hi - lo) * 0.05; lo -= pad; hi += pad;
+    const x = i => ml + (i + 0.5) * pw / N, y = v => mt + ph * (1 - (v - lo) / (hi - lo));
+    const bw = Math.max(1.5, pw / N * 0.62);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="4-hour chart for ${esc(r.pair)} with 50 and 200 EMA"><defs><clipPath id="plotclip"><rect x="${ml}" y="${mt}" width="${pw}" height="${ph}"/></clipPath></defs>`;
+    for (let k = 0; k <= 4; k++) {
+      const v = lo + (hi - lo) * k / 4, yy = y(v);
+      s += `<line class="grid" x1="${ml}" x2="${W - mr}" y1="${yy}" y2="${yy}"/><text x="${W - mr + 6}" y="${yy + 3}">${px(v, r.pair)}</text>`;
+    }
+    vis.forEach((b, i) => {
+      const up = b.c >= b.o, k = up ? 'c-up' : 'c-dn';
+      const top = y(Math.max(b.o, b.c)), bot = y(Math.min(b.o, b.c));
+      s += `<line class="${k}" x1="${x(i)}" x2="${x(i)}" y1="${y(b.h)}" y2="${y(b.l)}" stroke-width="1"/><rect class="${k}" x="${x(i) - bw / 2}" y="${top}" width="${bw}" height="${Math.max(1, bot - top)}" stroke-width="0"/>`;
+    });
+    ['ema50', 'ema200'].forEach(k => {
+      const arr = r.tech.series[k].slice(off); let d = '';
+      arr.forEach((v, i) => { if (v != null) d += (d ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1); });
+      if (d) s += `<path class="${k}" clip-path="url(#plotclip)" d="${d}"/>`;
+    });
+    if (p) {
+      [['Entry', p.entry, 'var(--ink)'], ['SL', p.sl, 'var(--short)'], ['TP1', p.tp1, 'var(--long)'], ['TP2', p.tp2, 'var(--long)']].forEach(([n, v, col]) => {
+        s += `<line class="lvl" x1="${ml}" x2="${W - mr}" y1="${y(v)}" y2="${y(v)}" stroke="${col}"/><text x="${W - mr + 6}" y="${y(v) - 3}" style="fill:${col};font-weight:600">${n}</text>`;
+      });
+    }
+    if (lv) s += `<line class="lvl" x1="${ml}" x2="${W - mr}" y1="${y(lv.price)}" y2="${y(lv.price)}" stroke="var(--accent)" stroke-dasharray="1 2"/><text x="${W - mr + 6}" y="${y(lv.price) + 10}" style="fill:var(--accent);font-weight:600">Live</text>`;
+    s += `<text x="${ml}" y="${H - 6}">${dShort(vis[0].t)}</text><text x="${ml + pw / 2}" y="${H - 6}" text-anchor="middle">${dShort(vis[Math.floor(N / 2)].t)}</text><text x="${ml + pw}" y="${H - 6}" text-anchor="end">${dShort(vis[N - 1].t)}</text></svg>`;
+    return s + `<div class="legend"><span><i style="background:var(--accent)"></i>50 EMA</span><span><i style="background:var(--warn)"></i>200 EMA</span><span>${N} 4H bars to ${dShort(vis[N - 1].t)}</span></div>`;
+  }
+
+  /* ---------- live price ---------- */
+  function liveOf(pair) {
+    const l = state.data && state.data.live && state.data.live[pair];
+    return l && l.price ? l : null;
+  }
+  function liveHTML(r) {
+    const l = liveOf(r.pair);
+    if (!l) return '';
+    const chg = l.prevClose ? (l.price / l.prevClose - 1) * 100 : 0;
+    const ageMin = Math.round((Date.now() - l.time) / 60000);
+    let st = '';
+    const pl = r.plan;
+    if (pl) {
+      const d = pl.dir, pip = r.pair.endsWith('JPY') ? 0.01 : 0.0001;
+      const pips = (l.price - pl.entry) * d / pip;
+      if (l.price * d <= pl.sl * d) st = '<span class="st bad">Past the stop level</span>';
+      else if (l.price * d >= pl.tp2 * d) st = '<span class="st good">Target 2 reached</span>';
+      else if (l.price * d >= pl.tp1 * d) st = '<span class="st good">Target 1 reached</span>';
+      else st = `<span class="note">${pips >= 0 ? '+' : '−'}${Math.abs(pips).toFixed(0)} pips from entry ref</span>`;
+    }
+    return `<div class="live"><span class="eyebrow">Live</span><span class="num big">${px(l.price, r.pair)}</span><span class="num ${cls(chg * 20)}">${chg >= 0 ? '+' : '−'}${Math.abs(chg).toFixed(2)}%</span><span class="note">vs last 4H close · ${fmtAgo(ageMin)}</span>${st}</div>`;
+  }
+
+  /* ---------- news and releases ---------- */
+  function renderNews() {
+    const D = state.data || {};
+    const sel = state.sel || '';
+    const scope = c => state.newsAll || !sel || sel.includes(c);
+    $('#newsScope').innerHTML = [[false, sel ? sel.slice(0, 3) + '/' + sel.slice(3) : 'Selected pair'], [true, 'All G10']].map(([k, l]) => `<button type="button" data-all="${k}" aria-pressed="${state.newsAll === k}">${esc(l)}</button>`).join('');
+    const news = (D.news || []).filter(n => n.ccy.some(scope)).slice(0, 10);
+    $('#newsList').innerHTML = news.length ? news.map(n => {
+      const href = /^https?:\/\//.test(n.link) ? n.link : '#';
+      const age = fmtAgo(Math.max(0, Math.round((Date.now() - n.ts) / 60000)));
+      return `<li><span class="tdot ${n.tone > 0 ? 'pos' : n.tone < 0 ? 'neg' : ''}" title="${n.tone > 0 ? 'Hawkish or strong tone' : n.tone < 0 ? 'Dovish or weak tone' : 'Neutral'}"></span><div><a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(n.title)}</a><span class="meta">${esc(n.ccy.join(' '))} · ${esc(n.src)} · ${age}</span></div></li>`;
+    }).join('') : `<li><span></span><div class="note">${D.news ? 'No recent headlines for this selection.' : 'No headlines yet. They arrive with the next automatic update.'}</div></li>`;
+    const now = Date.now();
+    const evs = (D.calendar || []).filter(e => e.ts > now - 3600000 && e.ts < now + 7 * 86400000 && scope(e.ccy)).slice(0, 12);
+    $('#evList').innerHTML = evs.length ? evs.map(e => {
+      const when = new Date(e.ts).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+      const fp = [e.forecast ? 'Forecast ' + e.forecast : '', e.previous ? 'Previous ' + e.previous : ''].filter(Boolean).join(' · ');
+      return `<div class="evl ${e.impact === 'High' ? 'hi' : ''}"><span class="tm">${esc(when)}</span><span class="ccy">${esc(e.ccy)}</span><span>${esc(e.title)}${e.impact === 'High' ? ' <span class="pill short">HIGH</span>' : ''}${fp ? '<span class="sub">' + esc(fp) + '</span>' : ''}</span></div>`;
+    }).join('') : `<div class="note" style="margin-top:8px">${D.calendar ? 'No medium or high impact releases in the next 7 days for this selection.' : 'No calendar yet. It arrives with the next automatic update.'}</div>`;
+  }
+
+  /* ---------- detail ---------- */
+  function driverText(d, pair, m) {
+    const b = pair.slice(0, 3), q = pair.slice(3), mb = m[b], mq = m[q];
+    const sg = v => (v >= 0 ? '+' : '−') + Math.abs(v);
+    const who = d.value > 0 ? b : q;
+    let t = '';
+    switch (d.key) {
+      case 'path': t = `Priced policy path: ${b} ${sg(mb.path)}bp against ${q} ${sg(mq.path)}bp`; break;
+      case 'real': t = `Real policy rate: ${b} ${(mb.rate - mb.cpi).toFixed(2)}% against ${q} ${(mq.rate - mq.cpi).toFixed(2)}%`; break;
+      case 'carry': t = `Policy rate: ${b} ${mb.rate.toFixed(2)}% against ${q} ${mq.rate.toFixed(2)}%`; break;
+      case 'infl': t = `CPI momentum: ${b} ${mb.cpi}% from ${mb.cpiPrev}%, ${q} ${mq.cpi}% from ${mq.cpiPrev}%`; break;
+      case 'labour': t = `Labour: ${b} unemployment ${mb.unemp ?? 'n/a'}%, ${q} ${mq.unemp ?? 'n/a'}%`; break;
+      case 'news': t = `Headline tone: ${b} ${(mb.news || 0) >= 0 ? '+' : '−'}${Math.abs(mb.news || 0).toFixed(2)}, ${q} ${(mq.news || 0) >= 0 ? '+' : '−'}${Math.abs(mq.news || 0).toFixed(2)} (keyword read of recent headlines)`; break;
+      default: t = `Analyst tilt: ${b} ${sg(mb.tilt)}, ${q} ${sg(mq.tilt)}`;
+    }
+    return `${t}. Favours ${who}.`;
+  }
+  const bar = (v) => `<div class="meter"><span class="fill ${v >= 0 ? 'pos' : 'neg'}" style="width:${(Math.min(100, Math.abs(v)) / 2).toFixed(1)}%"></span></div>`;
+
+  function renderDetail() {
+    const r = model.rows.find(x => x.pair === state.sel) || model.rows[0];
+    if (!r) return;
+    state.sel = r.pair;
+    const { pair, mp, tech, cb, plan } = r;
+    const d = cb.dir;
+    const pill = d > 0 ? '<span class="pill long">LONG</span>' : d < 0 ? '<span class="pill short">SHORT</span>' : '<span class="pill flat">NO TRADE</span>';
+    const b = pair.slice(0, 3), q = pair.slice(3);
+    const meaning = d > 0 ? `Buy ${b}, sell ${q}.` : d < 0 ? `Sell ${b}, buy ${q}.` : '';
+    let alerts = '';
+    r.ev.forEach(e => { alerts += `<div class="alert"><span>${esc(e.text)}. Expect gaps and wider spreads, so size down or wait.</span></div>`; });
+    if (cb.tier === 'conflict') alerts += `<div class="alert"><span>Macro and chart disagree. Skip this pair until they line up.</span></div>`;
+    if (tech && tech.flags.length && d) tech.flags.forEach(f => { if (!/Fewer than/.test(f) || true) alerts += `<div class="alert"><span>${esc(f)}</span></div>`; });
+    if (!tech) alerts += `<div class="alert"><span>Macro only. Add this pair's 4-hour chart in the data desk for a technical score and trade levels.</span></div>`;
+
+    const drivers = mp.drivers.filter(x => Math.abs(x.value) >= 2).slice(0, 3);
+    const macroLis = drivers.length ? drivers.map(x => `<li>${esc(driverText(x, pair, state.macro))}</li>`).join('') : '<li>No single macro factor separates these two currencies.</li>';
+    const techLis = tech ? tech.notes.map(n => `<li>${esc(n)}</li>`).join('') : '<li>No chart loaded.</li>';
+
+    const planHTML = plan ? `<div class="plan">
+      <div><span class="k">Entry ref</span><span class="n">${px(plan.entry, pair)}</span><span class="p">last close</span></div>
+      <div><span class="k">Stop</span><span class="n" style="color:var(--short)">${px(plan.sl, pair)}</span><span class="p">${plan.stopPips.toFixed(0)} pips</span></div>
+      <div><span class="k">Target 1</span><span class="n" style="color:var(--long)">${px(plan.tp1, pair)}</span><span class="p">${plan.tp1Pips.toFixed(0)} pips · 1.5R</span></div>
+      <div><span class="k">Target 2</span><span class="n" style="color:var(--long)">${px(plan.tp2, pair)}</span><span class="p">${plan.tp2Pips.toFixed(0)} pips · 3R</span></div>
+    </div>` : '';
+
+    const parts = tech ? `<div class="bars">
+      <div class="brow"><span>Trend</span>${bar(tech.parts.trend)}<span class="num">${fmtS(tech.parts.trend)}</span></div>
+      <div class="brow"><span>Momentum</span>${bar(tech.parts.mom)}<span class="num">${fmtS(tech.parts.mom)}</span></div>
+      <div class="brow"><span>Structure</span>${bar(tech.parts.struct)}<span class="num">${fmtS(tech.parts.struct)}</span></div>
+      <div class="brow"><span>20-bar move</span>${bar(tech.parts.roc)}<span class="num">${fmtS(tech.parts.roc)}</span></div></div>` : '';
+
+    $('#detail').innerHTML = `<div class="bd" style="display:flex;flex-direction:column;gap:14px">
+      <div class="d-head"><h2>${pairHTML(pair)}</h2>${pill}<span class="d-sub">${TIER[cb.tier]}${meaning ? ' · ' + meaning : ''}</span></div>
+      <div class="scores">
+        <div class="sc"><span class="eyebrow">Macro</span><span class="n ${cls(mp.score)}">${fmtS(mp.score)}</span></div>
+        <div class="sc"><span class="eyebrow">Chart</span><span class="n ${tech ? cls(tech.score) : 'nil-t'}">${tech ? fmtS(tech.score) : '–'}</span></div>
+        <div class="sc"><span class="eyebrow">Combined</span><span class="n ${cls(cb.combined)}">${fmtS(cb.combined)}</span></div>
+      </div>
+      ${liveHTML(r)}
+      ${alerts}
+      <div class="chartbox">${chartSVG(r)}</div>
+      ${planHTML}
+      <div class="why">
+        <div><h3>Macro case</h3><ul>${macroLis}</ul></div>
+        <div><h3>Chart case</h3><ul>${techLis}</ul>${parts}</div>
+      </div>
+      <div class="actions"><button class="btn primary" id="copyBtn" type="button">Copy signal text</button><span class="note" id="copyNote"></span></div>
+    </div>`;
+  }
+
+  function signalText(r) {
+    const { pair, mp, tech, cb, plan } = r, b = pair.slice(0, 3), q = pair.slice(3);
+    const dir = cb.dir > 0 ? 'LONG' : cb.dir < 0 ? 'SHORT' : 'NO TRADE';
+    const L = [`${pair} ${dir} (${TIER[cb.tier]})`, `Macro ${fmtS(mp.score)} | Chart ${tech ? fmtS(tech.score) : 'n/a'} | Combined ${fmtS(cb.combined)}`];
+    if (plan) L.push(`Entry ${px(plan.entry, pair)} | SL ${px(plan.sl, pair)} | TP1 ${px(plan.tp1, pair)} | TP2 ${px(plan.tp2, pair)}`);
+    mp.drivers.filter(x => Math.abs(x.value) >= 2).slice(0, 2).forEach(x => L.push('- ' + driverText(x, pair, state.macro)));
+    if (tech) L.push('- ' + tech.notes[0]);
+    L.push('Macro as of ' + dLong(MACRO_ASOF) + '. Not financial advice.');
+    return L.join('\n');
+  }
+
+  /* ---------- macro desk ---------- */
+  const FIELDS = [['rate', 'Policy rate %'], ['cpi', 'CPI % y/y'], ['cpiPrev', 'Prior CPI %'], ['unemp', 'Unemp. %'], ['unempPrev', 'Prior unemp. %'], ['path', 'Priced path bp'], ['tilt', 'Tilt −2 to 2']];
+  function renderMacro() {
+    let h = '<thead><tr><th>Ccy</th>' + FIELDS.map(f => `<th>${f[1]}</th>`).join('') + '<th>Context</th></tr></thead><tbody>';
+    CCY.forEach(c => {
+      const m = state.macro[c];
+      h += `<tr><td class="mono"><b>${c}</b><div class="note">${esc(m.bank)}</div></td>` + FIELDS.map(([k]) =>
+        `<td><input type="number" step="any" id="m-${c}-${k}" data-c="${c}" data-k="${k}" value="${m[k] == null ? '' : m[k]}" aria-label="${c} ${k}"></td>`).join('') + `<td class="nt">${esc(m.note)}</td></tr>`;
+    });
+    $('#mt').innerHTML = h + '</tbody>';
+    const t = todayMs();
+    $('#cal').innerHTML = EVENTS.map(e => {
+      const days = Math.round((Date.parse(e.d + 'T00:00:00Z') - t) / 86400000);
+      return `<div class="${days >= 0 && days <= 7 ? 'soon' : ''}"><span class="d">${dLong(e.d).slice(0, -5)}</span><span class="mono"><b>${e.ccy.join(' ')}</b></span><span>${esc(e.t)}. ${esc(e.x)}.</span></div>`;
+    }).join('');
+  }
+
+  /* ---------- chart loading ---------- */
+  function persistBars() {
+    const o = {};
+    for (const p in state.bars) o[p] = state.bars[p].slice(-420).map(b => [b.t, b.o, b.h, b.l, b.c]);
+    store.set(KEY_B, o);
+  }
+  function renderLoaded() {
+    const ps = Object.keys(state.bars).sort();
+    $('#loaded').innerHTML = ps.length ? ps.map(p => `<span class="chip"><b>${p}</b> ${state.bars[p].length} bars to ${dShort(state.bars[p][state.bars[p].length - 1].t)}</span>`).join('') +
+      '<button class="btn" id="clearBars" type="button">Clear all charts</button>' : '';
+  }
+  function logLine(ok, msg) {
+    const li = document.createElement('li'); li.className = ok ? 'ok' : 'bad'; li.textContent = msg; $('#log').prepend(li);
+  }
+  function addBars(pair, bars, label, inverted) {
+    if (inverted) bars = invertBars(bars);
+    if (bars.length < 60) { logLine(false, `${label}: only ${bars.length} bars. Need at least 60.`); return false; }
+    state.bars[pair] = bars.slice(-500);
+    const age = Math.round((Date.now() - bars[bars.length - 1].t) / 3600000);
+    logLine(true, `${pair}: ${bars.length} bars to ${dShort(bars[bars.length - 1].t)}${inverted ? ' (flipped from ' + label + ')' : ''}${age > 72 ? '. Last bar is ' + Math.round(age / 24) + ' days old.' : ''}${bars.length < 200 ? ' Under 200 bars, so the 200 EMA is skipped.' : ''}`);
+    return true;
+  }
+  function refresh(keepSel) {
+    model = compute();
+    if (!keepSel) state.sel = model.rows[0] && model.rows[0].pair;
+    renderChips(); renderStrength(); renderRows(); renderDetail(); renderLoaded(); renderNews();
+  }
+  function ingest(j) {
+    state.data = j;
+    if (j.bars && Object.keys(j.bars).length) {
+      state.bars = {};
+      for (const p in j.bars) if (PAIRS.includes(p)) state.bars[p] = j.bars[p].map(r => ({ t: r[0], o: r[1], h: r[2], l: r[3], c: r[4] }));
+    }
+    if (j.macro && !store.get(KEY_M)) { state.macro = clone(j.macro); renderMacro(); }
+    applyPulse();
+    refresh(true);
+  }
+  let polling = false;
+  async function poll() {
+    if (polling || !/^https?:/.test(location.protocol)) return;
+    polling = true;
+    try {
+      const r = await fetch('data.json?' + Date.now(), { cache: 'no-store' });
+      if (r.ok) {
+        const j = await r.json(), cur = state.data || {};
+        if (j.fetchedTs !== cur.fetchedTs || j.newsTs !== cur.newsTs) ingest(j); else renderChips();
+      }
+    } catch (e) { /* offline: keep what is on screen */ }
+    polling = false;
+  }
+  async function handleFiles(files) {
+    let any = false;
+    for (const f of files) {
+      const det = detectPair(f.name);
+      if (!det) { logLine(false, `${f.name}: no pair found in the file name. Rename it like EURUSD.csv or use the paste box.`); continue; }
+      const res = parseCSV(await f.text());
+      if (res.error) { logLine(false, `${f.name}: ${res.error}`); continue; }
+      if (addBars(det.pair, res.bars, f.name, det.inverted)) any = true;
+    }
+    if (any) { persistBars(); refresh(false); }
+  }
+
+  /* ---------- events ---------- */
+  $('#filters').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.filter = b.dataset.f; renderFilters(); renderRows(); });
+  $('#q').addEventListener('input', e => { state.q = e.target.value; renderRows(); });
+  $('#newsScope').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.newsAll = b.dataset.all === 'true'; renderNews(); });
+  $('#rows').addEventListener('click', e => {
+    const b = e.target.closest('.row'); if (!b) return;
+    state.sel = b.dataset.pair; renderRows(); renderDetail(); renderNews();
+    if (window.matchMedia('(max-width: 980px)').matches) $('#detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  $('#detail').addEventListener('click', e => {
+    if (e.target.id !== 'copyBtn') return;
+    const r = model.rows.find(x => x.pair === state.sel), txt = signalText(r), note = $('#copyNote');
+    const fallback = () => { note.textContent = 'Copy blocked here. Select the text below.'; const ta = document.createElement('textarea'); ta.value = txt; ta.rows = 6; e.target.parentNode.after(ta); ta.select(); };
+    try { navigator.clipboard.writeText(txt).then(() => { note.textContent = 'Copied.'; }, fallback); } catch (err) { fallback(); }
+  });
+  $('#files').addEventListener('change', e => { handleFiles([...e.target.files]); e.target.value = ''; });
+  const drop = $('#drop');
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => handleFiles([...e.dataTransfer.files]));
+  $('#pasteWhich').innerHTML = PAIRS.map(p => `<option value="${p}">${p}</option>`).join('');
+  $('#pasteBtn').addEventListener('click', () => {
+    const pair = $('#pasteWhich').value, res = parseCSV($('#paste').value);
+    if (res.error) { logLine(false, 'Pasted rows: ' + res.error); return; }
+    if (addBars(pair, res.bars, 'Pasted rows', false)) { persistBars(); $('#paste').value = ''; refresh(false); }
+  });
+  $('#loaded').addEventListener('click', e => {
+    if (e.target.id !== 'clearBars') return;
+    state.bars = {}; persistBars(); refresh(false);
+  });
+  $('#mt').addEventListener('input', e => {
+    const i = e.target; if (!i.dataset.c) return;
+    const v = i.value === '' ? null : parseFloat(i.value);
+    if (v !== null && isNaN(v)) return;
+    const k = i.dataset.k;
+    if (v === null && !['unemp', 'unempPrev'].includes(k)) return;
+    state.macro[i.dataset.c][k] = v;
+    store.set(KEY_M, state.macro);
+    model = compute(); renderStrength(); renderRows(); renderDetail();
+  });
+  $('#resetMacro').addEventListener('click', () => {
+    state.macro = clone(DEFAULT_MACRO); store.set(KEY_M, null); renderMacro(); refresh(true);
+  });
+
+  renderFilters(); renderMacro(); refresh(false);
+  setInterval(poll, 60000);
+  setInterval(() => { renderChips(); }, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+  poll();
+})();
+</script>
